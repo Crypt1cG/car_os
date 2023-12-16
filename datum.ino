@@ -1,26 +1,15 @@
 #include "inc/datum.hpp"
 
-Datum::Datum(String label, int x, int y, double min, double max, uint32_t color, int radius) : min(min), max(max)
+void Datum::update()
 {
-    this->label = label;
-    this->x = x;
-    this->y = y;
-    this->color = color;
-    this->radius = radius;
-    value = 0;
-}
-
-void Datum::update(double num)
-{
+    double num = ds->update();
     history.push_front(num);
     if (history.size() > 200) history.pop_back();
-    value = num;
 }
 
-void Datum::move(int x, int y)
+void Datum::move(Point p)
 {
-    this->x = x;
-    this->y = y;
+    pos = p;
 }
 
 void Datum::draw(TFT_eSPI& tft)
@@ -36,17 +25,17 @@ void Datum::draw(TFT_eSPI& tft)
     // gauge background circle
     spr.fillSmoothCircle(radius, radius, radius, GAUGE_BG);
     spr.drawSmoothArc(radius, radius, 0.95 * radius, 0.8 * radius,
-                      45, 45 + ((value - min) * 1.0 / (max - min)) * 270,
+                      45, 45 + ((ds->get() - ds->min) * 1.0 / (ds->max - ds->min)) * 270,
                       color, GAUGE_BG);
     // draw the number
     spr.setTextDatum(BC_DATUM);
-    spr.drawString(String(value), radius, radius);
+    spr.drawString(String(ds->get()), radius, radius);
     
     // draw the label text
     spr.setTextDatum(TC_DATUM);
     spr.drawString(label, radius, radius);
     
-    spr.pushSprite(x - radius, y - radius);
+    spr.pushSprite(pos.x - radius, pos.y - radius);
     spr.deleteSprite();
 }
 
@@ -69,7 +58,7 @@ void Datum::drawDetailed(TFT_eSPI& tft)
         // tickmark on y axis
         spr.drawLine(45, 10 + i * 26, 55, 10 + i * 26, TFT_WHITE);
         spr.setTextDatum(MR_DATUM);
-        spr.drawString(String((int)(min + (10 - i) * (max - min) / 10)), 45, 10 + i * 26);
+        spr.drawString(String((int)(ds->min + (10 - i) * (ds->max - ds->min) / 10)), 45, 10 + i * 26);
         // tickmark on x axis
         spr.drawLine(250 - i * 20, 265, 250 - i * 20, 275, TFT_WHITE);
         spr.setTextDatum(TC_DATUM);
@@ -84,8 +73,8 @@ void Datum::drawDetailed(TFT_eSPI& tft)
     {
         // spr.drawLine(50 + n, 10 + 260 * (max - *it) / (max - min),
                     //  51 + n, 10 + 260 * (max - *(--it)) / (max - min), color);
-        spr.drawWideLine(50 + n, 10 + 260 * (max - *it) / (max - min),
-                         51 + n, 10 + 260 * (max - *(--it)) / (max - min), 2, color);
+        spr.drawWideLine(50 + n, 10 + 260 * (ds->max - *it) / (ds->max - ds->min),
+                         51 + n, 10 + 260 * (ds->max - *(--it)) / (ds->max - ds->min), 2, color);
         n++;
     }
 
@@ -97,11 +86,16 @@ void Datum::drawDetailed(TFT_eSPI& tft)
     spr.setFreeFont(&FreeMonoBold24pt7b);
     spr.fillSprite(TFT_BLACK);
     spr.setTextDatum(TC_DATUM);
-    spr.drawString(String(value), 90, SCREEN_HEIGHT / 4);
+    spr.drawString(String(ds->get()), 90, SCREEN_HEIGHT / 4);
     spr.setFreeFont(&FreeSans18pt7b);
     spr.setTextDatum(BC_DATUM);
     spr.drawString(label, 90, 3 * SCREEN_HEIGHT / 4);
 
     spr.pushSprite(300, 0);
     spr.deleteSprite();
+}
+
+bool Datum::contains(Point p) {
+    return sqrt((p.x - pos.x) * (p.x - pos.x) +
+                (p.y - pos.y) * (p.y - pos.y)) < radius;
 }

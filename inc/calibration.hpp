@@ -4,6 +4,7 @@
 #include <TFT_eSPI.h>
 #include <utility>
 #include <array>
+#include "stuff.hpp"
 
 // some decent values 
 double xAxisSlope = 0.6;
@@ -16,4 +17,4 @@ void calibrate(TFT_eSPI& tft, TouchScreen& ts);
 /**
  * takes raw input from touchscreen and transforms it to actual screen coords
 */
-std::pair<int, int> touchscreenAdjust(std::pair<int, int> point);
+Point touchscreenAdjust(Point point);

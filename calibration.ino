@@ -12,7 +12,7 @@ void drawCrosshair(TFT_eSPI& tft, TouchScreen& ts, int x, int y)
 
 void calibrate(TFT_eSPI& tft, TouchScreen& ts)
 {
-    std::array<std::pair<std::pair<int, int>, std::pair<int, int>>, 4> points = 
+    std::array<std::pair<Point, Point>, 4> points = 
         {{ {{40, 40}, {}},      {{440, 40}, {}},
            {{440, 280}, {}},    {{40, 280}, {}} }};
 
@@ -20,31 +20,35 @@ void calibrate(TFT_eSPI& tft, TouchScreen& ts)
     // so we swap the x and y coords
     for (int i = 0; i < 4; i++)
     {
-        drawCrosshair(tft, ts, points[i].first.first, points[i].first.second);
+        drawCrosshair(tft, ts, points[i].first.x, points[i].first.y);
         TSPoint p = ts.getPoint();
+        int time = 0;
         while (p.z < ts.pressureThreshhold)
         {
             delay(30);
+            time += 30;
+            if (time > 10000)
+                return;
             p = ts.getPoint();
         }
 
         points[i].second = {p.y, p.x}; // note the coords are swapped
         tft.fillScreen(TFT_BLACK);
 
-        Serial.println("Drawn at: (" + String(points[i].first.first) + ", " + 
-                                       String(points[i].first.second) + 
+        Serial.println("Drawn at: (" + String(points[i].first.x) + ", " + 
+                                       String(points[i].first.y) + 
                        "), touched at: (" + String(p.y) + ", " + String(p.x) + ")");
         delay(150);
     }
 
     // calculate parameters from data
     // second means recorded coords from touchscreen, first means x
-    double avgXDelta = ((points[1].second.first - points[0].second.first) + 
-                        (points[2].second.first - points[3].second.first)) / 2;
+    double avgXDelta = ((points[1].second.x - points[0].second.x) + 
+                        (points[2].second.x - points[3].second.x)) / 2;
     xAxisSlope = 400.0 / avgXDelta;
 
-    double avgYDelta = ((points[3].second.second - points[0].second.second) +
-                        (points[2].second.second - points[1].second.second)) / 2;
+    double avgYDelta = ((points[3].second.y - points[0].second.y) +
+                        (points[2].second.y - points[1].second.y)) / 2;
     yAxisSlope = 240.0 / avgYDelta;
 
     // calculate intercepts for each point, then average
@@ -52,8 +56,8 @@ void calibrate(TFT_eSPI& tft, TouchScreen& ts)
     for (int i = 0; i < 4; i++)
     {
         // this comes from point-slope form
-        xSum += points[i].first.first - xAxisSlope * points[i].second.first;
-        ySum += points[i].first.second - yAxisSlope * points[i].second.second;
+        xSum += points[i].first.x - xAxisSlope * points[i].second.x;
+        ySum += points[i].first.y- yAxisSlope * points[i].second.y;
     }
 
     xAxisIntercept = xSum / 4.0;
@@ -65,8 +69,8 @@ void calibrate(TFT_eSPI& tft, TouchScreen& ts)
                                             String(yAxisIntercept));
 }
 
-std::pair<int, int> touchscreenAdjust(std::pair<int, int> point)
+Point touchscreenAdjust(Point point)
 {
-    return {point.first * xAxisSlope + xAxisIntercept,
-            point.second * yAxisSlope + yAxisIntercept};
+    return {point.x * xAxisSlope + xAxisIntercept,
+            point.y * yAxisSlope + yAxisIntercept};
 }

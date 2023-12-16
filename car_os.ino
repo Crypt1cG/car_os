@@ -5,6 +5,7 @@
 #include "inc/stuff.hpp"
 #include "inc/calibration.hpp"
 #include "inc/datum.hpp"
+#include "inc/gui.hpp"
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -19,7 +20,7 @@ TFT_eSPI tft = TFT_eSPI();
 // last argument is resistance between X+ and X- (280 ohms)
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 280);
 
-Datum rpm = Datum("rpm", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 8000, TFT_GREEN, 100);
+GUI gui(tft);
 bool big = false;
 int num;
 
@@ -36,6 +37,27 @@ void setup()
     tft.setFreeFont(&FreeSansBold12pt7b);
     
     calibrate(tft, ts);
+
+    // Connect to elm327 - mostly taken from example
+    Serial.println("Beginning connection process...");
+    serial_bt.begin("Car_OS", true);
+    if (!serial_bt.connect("OBDII")) {
+        Serial.println("Couldn't connect to ELM327");
+        while (1); // halt execution
+    }
+    if (!elm327.begin(serial_bt, true, 2000)) {
+        Serial.println("Couldn't set up elm327");
+        while (1); // halt execution
+    }
+    Serial.println("Connected!");
+
+    //Datum rpm = Datum("rpm", TFT_RED, new SinData(3000, 4000, 1/15.0));
+    Datum rpm = Datum("rpm", TFT_RED, new ELMStream(new RPMGetter(elm327), 0, 10000));
+    Datum speed = Datum("speed", TFT_BLUE, new SinData(100, 100, 1/10.0));
+    Datum temp = Datum("temp", TFT_GREEN, new SinData(70, 100, 1/20.0));
+    Datum mpg = Datum("mpg", TFT_CYAN, new SinData(10, 10, 1/15.0));
+    gui.fill_data({rpm, speed, temp, mpg});
+
 }
 
 void loop()
@@ -43,28 +65,11 @@ void loop()
     TSPoint p = ts.getPoint();
     if (p.z > ts.pressureThreshhold)
     {
-        std::pair<int, int> screenCoords = touchscreenAdjust({p.y, p.x});
-        // Serial.println("Touched at: (" + String(p.y) + ", " + String(p.x) + 
-        //                "), converted to: (" + String(screenCoords.first) + ", " + String(screenCoords.second) + ")");
-        // tft.fillCircle(screenCoords.first, screenCoords.second, 5, TFT_RED);
-        if (!big && sqrt((screenCoords.first - rpm.x)*(screenCoords.first - rpm.x) + 
-                         (screenCoords.second - rpm.y)*(screenCoords.second - rpm.y)) < rpm.radius)
-        {
-            Serial.println("GOING BIG!");
-            big = true;
-            tft.fillScreen(TFT_BLACK);
-        }
-        else if (big)
-        {
-            Serial.println("going small");
-            big = false;
-            tft.fillScreen(TFT_BLACK);
-        }
+        Point screenCoords = touchscreenAdjust({p.y, p.x});
+        gui.on_touch(screenCoords);
     }
     num++;
-    // num %= 100;
-    rpm.update(3000 * sin(num / 15.0) + 4000);
-    if (big) rpm.drawDetailed(tft);
-    else rpm.draw(tft);
+    gui.update();
+    gui.draw();
     delay(20);
 }
