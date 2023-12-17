@@ -1,5 +1,7 @@
 #pragma once
 #include <utility>
+#include "ELMduino.h"
+#include <BluetoothSerial.h>
 
 
 #define SCREEN_WIDTH 480
@@ -7,4 +9,11 @@
 
 struct Point {
     int x, y;    
+};
+
+enum Data {
+    rpm,
+    speed,
+    temp,
+    throt
 };

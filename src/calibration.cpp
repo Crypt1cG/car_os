@@ -1,5 +1,5 @@
-#include "inc/calibration.hpp"
-#include "inc/stuff.hpp"
+#include "calibration.hpp"
+#include "stuff.hpp"
 
 void drawCrosshair(TFT_eSPI& tft, TouchScreen& ts, int x, int y)
 {
