@@ -16,6 +16,7 @@ class Datum
     int radius;
     double value = 0;
     double min, max;
+    int precision;
     // TFT_eSPI& tft;
     // TFT_eSprite spr;
 
@@ -30,12 +31,12 @@ public:
     // Datum(const String& label, uint32_t color, double min, double max, TFT_eSPI& tft)
     //     : Datum(label, color, 0, min, max, tft) {}
     
-    Datum(const String& label, Point p, uint32_t color, int radius, double min, double max) 
-        : label(label), pos(p), color(color), radius(radius), min(min), max(max) {}
-    Datum(const String& label, uint32_t color, int radius, double min, double max)
-        : Datum(label, {0, 0}, color, radius, min, max) {}
-    Datum(const String& label, uint32_t color, double min, double max)
-        : Datum(label, color, 0, min, max) {}
+    Datum(const String& label, Point p, uint32_t color, int radius, double min, double max, int prec = 1) 
+        : label(label), pos(p), color(color), radius(radius), min(min), max(max), precision(prec) {}
+    Datum(const String& label, uint32_t color, int radius, double min, double max, int p = 1)
+        : Datum(label, {0, 0}, color, radius, min, max, p) {}
+    Datum(const String& label, uint32_t color, double min, double max, int p = 1)
+        : Datum(label, color, 0, min, max, p) {}
 
     void update(double new_val);
     void move(Point p) { pos = p; }

@@ -1,7 +1,6 @@
 #pragma once
 #include <utility>
 #include "ELMduino.h"
-#include <BluetoothSerial.h>
 
 
 #define SCREEN_WIDTH 480
