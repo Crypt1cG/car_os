@@ -1,5 +1,19 @@
 #include "datum.hpp"
 
+const std::map<const String, std::tuple<uint32_t, double, double, float (ELM327::*)(), int>> Datum::default_configs =
+    {
+        {"rpm", {TFT_RED, 0, 10000, &ELM327::rpm, 0}},
+        {"speed", {TFT_BLUE, 0, 100, &ELM327::mph, 1}},
+        {"temp", {TFT_GREEN, 0, 120, &ELM327::engineCoolantTemp, 0}},
+        {"throt", {TFT_CYAN, 0, 100, &ELM327::throttle, 1}},
+        {"load", {TFT_MAGENTA, 0, 100, &ELM327::engineLoad, 1}},
+        {"fp", {TFT_OLIVE, 0, 765, &ELM327::fuelPressure, 0}},
+        {"ip", {TFT_MAROON, 0, 255, (float (ELM327::*)())(&ELM327::manifoldPressure), 0}},
+        {"time", {TFT_DARKCYAN, -64, 63.5, &ELM327::timingAdvance, 1}},
+        {"atmp", {TFT_NAVY, -40, 215, &ELM327::intakeAirTemp, 0}},
+        {"maf", {TFT_ORANGE, 0, 655.35, &ELM327::mafRate, 1}}
+    };
+
 void Datum::update(double new_val)
 {
     value = new_val;
@@ -77,8 +91,9 @@ void Datum::drawDetailed(TFT_eSPI& tft)
     {
         // spr.drawLine(50 + n, 10 + 260 * (max - *it) / (max - min),
                     //  51 + n, 10 + 260 * (max - *(--it)) / (max - min), color);
-        spr.drawWideLine(50 + n, 10 + 260 * (max - *it) / (max - min),
-                         51 + n, 10 + 260 * (max - *(--it)) / (max - min), 2, color);
+        if (*it <= max && *it >= min)
+            spr.drawWideLine(50 + n, 10 + 260 * (max - *it) / (max - min),
+                            51 + n, 10 + 260 * (max - *(--it)) / (max - min), 2, color);
         n++;
     }
     // int n = 0;

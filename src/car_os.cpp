@@ -21,9 +21,9 @@ ELM327 elm327;
 // last argument is resistance between X+ and X- (280 ohms)
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 280);
 
-GUI gui(tft);
+GUI gui(tft, elm327);
 double val;
-Data curr_data;
+int curr_data;
 int n;
 
 int num_loops_touching = 0;
@@ -34,13 +34,13 @@ void setup()
     Serial.begin(115200);
 
     analogReadResolution(10);
-    delay(2000);
+    // delay(2000);
     // Connect to elm327 - mostly taken from example
     Serial.println("Beginning connection process...");
     // serial_bt.begin("Car_OS");
     // serial_bt.begin();
     // gap_set_local_name("CarOS");
-    delay(2000);
+    // delay(2000);
     // if (!serial_bt.connect("neven-laptop")) {
         // Serial.println("Couldn't connect to ELM327");
         // while (1); // halt execution
@@ -71,28 +71,19 @@ void setup()
 
     // Datum rpm = Datum("rpm", TFT_RED, new SinData(3000, 4000, 1/15.0));
     Datum data[4] = {
-        Datum("rpm", TFT_RED, 0.f, 10000.f, 0),
-        Datum("speed", TFT_BLUE, 0, 100),
-        Datum("temp", TFT_GREEN, 0, 300),
-        Datum("throt", TFT_CYAN, 0, 100)
+        // Datum("rpm", TFT_RED, 0, 10000, &ELM327::rpm, 0),
+        // Datum("speed", TFT_BLUE, 0, 100, &ELM327::mph),
+        // Datum("temp", TFT_GREEN, 0, 120, &ELM327::engineCoolantTemp),
+        // Datum("throt", TFT_CYAN, 0, 100, &ELM327::throttle)
+        Datum("rpm"), Datum("speed"), Datum("temp"), Datum("throt")
     };
     gui.fill_data(data);
     
-    ts.pressureThreshhold = 100;
+    ts.pressureThreshhold = 140;
 }
 
 void loop() {
     TSPoint p = ts.getPoint();
-    // Point screenCoords = touchscreenAdjust({p.y, p.x});
-    // if (p.z > ts.pressureThreshhold) {
-    //     Serial.println("Just got a touch");
-    //     Serial.print("("); Serial.print(screenCoords.x); Serial.print(", "); Serial.print(screenCoords.y);
-    //     Serial.println(")");
-    //     was_touching = true;
-    // } else if (was_touching) {// not touching now, but just was (release) - coors might not be accurate
-    //     gui.on_touch(screenCoords);
-    //     was_touching = false;
-    // }
     if (n % 5 == 0 && p.z > ts.pressureThreshhold) {
         Point screenCoords = touchscreenAdjust({p.y, p.x});
         Serial.println("Just got a touch");
@@ -100,45 +91,32 @@ void loop() {
         Serial.println(")");
         Serial.println(p.z);
         if (0 <= screenCoords.x && screenCoords.x <= SCREEN_WIDTH && 
-            0 <= screenCoords.y && screenCoords.y <= SCREEN_HEIGHT)
-            gui.on_touch(screenCoords);
+            0 <= screenCoords.y && screenCoords.y <= SCREEN_HEIGHT) {
+            if (++num_loops_touching > 5) { // we've been holding for a bit
+                // tft.fillScreen(TFT_RED);
+                gui.show_menu(screenCoords);
+            } else
+                gui.on_touch(screenCoords);
+        }
+    } else if (n % 5 == 0) {
+        num_loops_touching = max(num_loops_touching - 1, 0);
     }
 
-    switch (curr_data) {
-        case rpm: {
-            val = elm327.rpm();
-            // Serial.println("Querying rpm");
-            break;
-        }
-        case speed: {
-            val = elm327.mph();
-            // Serial.println("Querying speed");
-            break;
-        }
-        case temp: {
-            val = elm327.engineCoolantTemp();
-            // Serial.println("Querying temp");
-            break;
-        }
-        case throt: {
-            val = elm327.throttle();
-            // Serial.println("Querying throttle");
-            break;
-        }
-    }
+    val = gui.get(curr_data);
+
     // we finally got a response
     if (elm327.nb_rx_state == ELM_SUCCESS) {
         // update gui
         gui.update(val, curr_data);
         // move to next data thing (there are 4 total)
-        curr_data = (Data)((curr_data + 1) % 4);
+        curr_data = (curr_data + 1) % 4;
         // Serial.print("Got: ");
         // Serial.println(val);
     }
     // error - just move on to next
     else if (elm327.nb_rx_state != ELM_GETTING_MSG) {
         elm327.printError();
-        curr_data = (Data)((curr_data + 1) % 4);
+        curr_data = (curr_data + 1) % 4;
     }
 
     // draw a random circle for testing purposes
