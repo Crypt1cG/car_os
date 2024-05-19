@@ -123,6 +123,7 @@ void GUI::on_touch(Point p) {
 
 float GUI::get(int i) {
     return (elm.*(data[i].getter))();
+    // return data[i].getter();
 }
 
 void GUI::show_menu(Point p) {

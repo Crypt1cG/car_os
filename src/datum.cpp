@@ -1,14 +1,19 @@
 #include "datum.hpp"
 
-const std::map<const String, std::tuple<uint32_t, double, double, float (ELM327::*)(), int>> Datum::default_configs =
+
+const std::map<const String, std::tuple<uint32_t, double, double, func, int>> Datum::default_configs =
     {
         {"rpm", {TFT_RED, 0, 10000, &ELM327::rpm, 0}},
+        // {"rpm", {TFT_RED, 0, 10000, [](){ delay(10); return (rand() % 10000) * 1.f; }, 0}},
         {"speed", {TFT_BLUE, 0, 100, &ELM327::mph, 1}},
+        // {"speed", {TFT_BLUE, 0, 100, [](){ delay(10); return (rand() % 100) * 1.f; }, 1}},
         {"temp", {TFT_GREEN, 0, 120, &ELM327::engineCoolantTemp, 0}},
+        // {"temp", {TFT_GREEN, 0, 120, [](){ delay(10); return (rand() % 120) * 1.f; }, 0}},
         {"throt", {TFT_CYAN, 0, 100, &ELM327::throttle, 1}},
+        // {"throt", {TFT_CYAN, 0, 100, [](){ delay(10); return (rand() % 100) * 1.f; }, 1}},
         {"load", {TFT_MAGENTA, 0, 100, &ELM327::engineLoad, 1}},
-        {"fp", {TFT_OLIVE, 0, 765, &ELM327::fuelPressure, 0}},
-        {"ip", {TFT_MAROON, 0, 255, (float (ELM327::*)())(&ELM327::manifoldPressure), 0}},
+        {"fp", {TFT_OLIVE, 0, 765, &ELM327::fuelPressure, 0}}, // doesn't work
+        {"ip", {TFT_MAROON, 0, 255, (float (ELM327::*)())(&ELM327::manifoldPressure), 0}}, // doesn't work
         {"time", {TFT_DARKCYAN, -64, 63.5, &ELM327::timingAdvance, 1}},
         {"atmp", {TFT_NAVY, -40, 215, &ELM327::intakeAirTemp, 0}},
         {"maf", {TFT_ORANGE, 0, 655.35, &ELM327::mafRate, 1}}
@@ -17,8 +22,10 @@ const std::map<const String, std::tuple<uint32_t, double, double, float (ELM327:
 void Datum::update(double new_val)
 {
     value = new_val;
-    history.push_front(new_val);
-    if (history.size() > 200) history.pop_back();
+    curr_ind = (curr_ind + 1) % HIST_SIZE;
+    history[curr_ind] = value;
+    // history.push_front(new_val);
+    // if (history.size() > 200) history.pop_back();
 }
 
 void Datum::draw(TFT_eSPI& tft)
@@ -66,7 +73,7 @@ void Datum::drawDetailed(TFT_eSPI& tft)
     // font for axis labels
     spr.setFreeFont(&FreeMono9pt7b);
     // we can't do the whole screen at once cause it's too much memory??
-    spr.createSprite(300, SCREEN_HEIGHT);
+    spr.createSprite(280, SCREEN_HEIGHT);
     spr.fillSprite(TFT_BLACK);
     // draw axes
     spr.drawFastHLine(50, 270, 200, TFT_WHITE);
@@ -84,18 +91,23 @@ void Datum::drawDetailed(TFT_eSPI& tft)
             spr.drawString(String((10 - i) * 20), 250 - i * 20, 275);
     }
 
-    int n = 0;
-    std::list<double>::iterator it = history.end();
-    it--; // end() returns an iterator pointing to one past the end
-    while (n + 1 < history.size())
-    {
-        // spr.drawLine(50 + n, 10 + 260 * (max - *it) / (max - min),
-                    //  51 + n, 10 + 260 * (max - *(--it)) / (max - min), color);
-        if (*it <= max && *it >= min)
-            spr.drawWideLine(50 + n, 10 + 260 * (max - *it) / (max - min),
-                            51 + n, 10 + 260 * (max - *(--it)) / (max - min), 2, color);
-        n++;
-    }
+    // int n = 0;
+    // std::list<float>::iterator it = history.end();
+    // it--; // end() returns an iterator pointing to one past the end
+    // while (n + 1 < history.size())
+    // {
+    //     // spr.drawLine(50 + n, 10 + 260 * (max - *it) / (max - min),
+    //                 //  51 + n, 10 + 260 * (max - *(--it)) / (max - min), color);
+    //     if (*it <= max && *it >= min)
+    //         // spr.drawWideLine(50 + n, 10 + 260 * (max - *it) / (max - min),
+    //         //                 51 + n, 10 + 260 * (max - *(--it)) / (max - min), 2, color);
+    //     {
+    //         int p1 = 10 + 260 * (max - *it) / (max - min);
+    //         int p2 = 10 + 260 * (max - *(--it)) / (max - min);
+    //         spr.drawFastVLine(50 + n, std::min(p1, p2), abs(p2 - p1), color);
+    //     }
+    //     n++;
+    // }
     // int n = 0;
     // auto it = history.begin();
     // while (it != history.end()) {
@@ -104,11 +116,21 @@ void Datum::drawDetailed(TFT_eSPI& tft)
     //     n++;
     // }
 
+    int ind = (curr_ind + 1) % HIST_SIZE; // should be the last element  
+    for (int i = 0; i < HIST_SIZE - 1; i++) {
+        if (history[ind] <= max && history[ind] >= min) {
+            int p1 = 10 + 260 * (max - history[ind]) / (max - min);
+            int p2 = 10 + 260 * (max - history[(ind + 1) % HIST_SIZE]) / (max - min);
+            spr.drawFastVLine(50 + i, std::min(p1, p2), abs(p2 - p1), color);
+        }
+        ind = (ind + 1) % HIST_SIZE;
+    }
+
     spr.pushSprite(0, 0);
     spr.deleteSprite();
 
     // big number display thing of current reading
-    spr.createSprite(180, SCREEN_HEIGHT);
+    spr.createSprite(200, SCREEN_HEIGHT);
     spr.setFreeFont(&FreeMonoBold24pt7b);
     spr.fillSprite(TFT_BLACK);
     spr.setTextDatum(TC_DATUM);
@@ -117,7 +139,7 @@ void Datum::drawDetailed(TFT_eSPI& tft)
     spr.setTextDatum(BC_DATUM);
     spr.drawString(label, 90, 3 * SCREEN_HEIGHT / 4);
 
-    spr.pushSprite(300, 0);
+    spr.pushSprite(280, 0);
     spr.deleteSprite();
 }
 

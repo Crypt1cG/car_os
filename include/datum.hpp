@@ -6,17 +6,23 @@
 #include "stuff.hpp"
 #include <map>
 #include <tuple>
+#include <array>
+
+typedef float (ELM327::*func)();
 
 class Datum
 {
     const static std::map<const String, 
-        std::tuple<uint32_t, double, double, float (ELM327::*)(), int>> default_configs;
+        std::tuple<uint32_t, double, double, func, int>> default_configs;
 
     const static uint32_t GAUGE_BG = TFT_DARKGREY;
+    const static int HIST_SIZE = 200;
 
     String label;
     uint32_t color;
-    std::list<double> history;
+    //std::list<float> history;
+    std::array<float, HIST_SIZE> history;
+    int curr_ind = 0;
     Point pos;
     int radius;
     double value = 0;
@@ -44,15 +50,15 @@ public:
     //     : Datum(label, color, 0, min, max, tft) {}
 
     Datum(const String& label, Point p, uint32_t color, int radius, double min,
-          double max, float (ELM327::*g)(), int prec = 1)
+          double max, func g, int prec = 1)
         : label(label), pos(p), color(color), radius(radius), min(min), 
           max(max), getter(g), precision(prec) {}
 
     Datum(const String& label, uint32_t color, int radius, double min, double max, 
-          float (ELM327::*g)(), int p = 1)
+          func g, int p = 1)
         : Datum(label, {0, 0}, color, radius, min, max, g, p) {}
 
-    Datum(const String& label, uint32_t color, double min, double max, float (ELM327::*g)(),
+    Datum(const String& label, uint32_t color, double min, double max, func g,
           int p = 1)
         : Datum(label, color, 0, min, max, g, p) {}
 
@@ -74,5 +80,6 @@ public:
     bool contains(Point p);
 
     // might be a better way (not public)
-    float (ELM327::*getter)();
+    //float (ELM327::*getter)();
+    func getter;
 };

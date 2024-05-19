@@ -6,6 +6,7 @@
 #include "calibration.hpp"
 #include "datum.hpp"
 #include "gui.hpp"
+#include "SerialBT_improved.hpp"
 
 TFT_eSPI tft = TFT_eSPI();
 ELM327 elm327;
@@ -47,18 +48,37 @@ void setup()
     // }
 
     // connection to esp32
-    Serial1.setRX(17);
-    Serial1.setTX(16);
-    Serial1.begin(115200);
+    // Serial1.setRX(17);
+    // Serial1.setTX(16);
+    // Serial1.begin(115200);
 
-    // wait for esp32
-    while (!Serial1.available() || Serial1.read() == '0') delay(50);
+    // // wait for esp32
+    // while (!Serial1.available() || Serial1.read() == '0') delay(50);
 
-    if (!elm327.begin(Serial1, false, 2000)) {
+    // if (!elm327.begin(Serial1, false, 2000)) {
+    //     Serial.println("Couldn't set up elm327");
+    //     while (1); // halt execution
+    // }
+    // Serial.println("Connected!");
+
+    SerialBT.begin();
+    // SerialBT.connect("C4:D0:E3:95:75:53"); // laptop
+    SerialBT.connect("00:1D:A5:02:05:78"); // ELM327
+    // Serial.println("Press any key to continue...");
+    // while (!Serial.available()) {delay(100);};
+    // wait till connected?
+    // while (!SerialBT) { 
+    //     Serial.println("Waiting...");
+    //     delay(100);
+    // }
+    delay(2000);
+    Serial.println("Connected??");
+
+    if (!elm327.begin(SerialBT, false, 2000)) {
         Serial.println("Couldn't set up elm327");
         while (1); // halt execution
     }
-    Serial.println("Connected!");
+    Serial.println("ELM connected");
     
     tft.init();
     tft.setRotation(1);
@@ -67,6 +87,7 @@ void setup()
     tft.setFreeFont(&FreeSansBold12pt7b);
     
     Serial.println("Starting calibration...");
+    ts.pressureThreshhold = 50;
     calibrate(tft, ts);
 
     // Datum rpm = Datum("rpm", TFT_RED, new SinData(3000, 4000, 1/15.0));
@@ -78,34 +99,49 @@ void setup()
         Datum("rpm"), Datum("speed"), Datum("temp"), Datum("throt")
     };
     gui.fill_data(data);
-    
-    ts.pressureThreshhold = 140;
 }
 
 void loop() {
     TSPoint p = ts.getPoint();
-    if (n % 5 == 0 && p.z > ts.pressureThreshhold) {
+    // if (n % 5 == 0 && p.z > ts.pressureThreshhold) {
+    //     Point screenCoords = touchscreenAdjust({p.y, p.x});
+    //     Serial.println("Just got a touch");
+    //     Serial.print("("); Serial.print(screenCoords.x); Serial.print(", "); Serial.print(screenCoords.y);
+    //     Serial.println(")");
+    //     Serial.println(p.z);
+    //     if (0 <= screenCoords.x && screenCoords.x <= SCREEN_WIDTH && 
+    //         0 <= screenCoords.y && screenCoords.y <= SCREEN_HEIGHT) {
+    //         if (++num_loops_touching > 5) { // we've been holding for a bit
+    //             // tft.fillScreen(TFT_RED);
+    //             gui.show_menu(screenCoords);
+    //         } else
+    //             gui.on_touch(screenCoords);
+    //     }
+    // } else if (n % 5 == 0) {
+    //     num_loops_touching = max(num_loops_touching - 1, 0);
+    // }
+    if (p.z > ts.pressureThreshhold) {
         Point screenCoords = touchscreenAdjust({p.y, p.x});
-        Serial.println("Just got a touch");
-        Serial.print("("); Serial.print(screenCoords.x); Serial.print(", "); Serial.print(screenCoords.y);
-        Serial.println(")");
-        Serial.println(p.z);
-        if (0 <= screenCoords.x && screenCoords.x <= SCREEN_WIDTH && 
-            0 <= screenCoords.y && screenCoords.y <= SCREEN_HEIGHT) {
-            if (++num_loops_touching > 5) { // we've been holding for a bit
-                // tft.fillScreen(TFT_RED);
-                gui.show_menu(screenCoords);
-            } else
-                gui.on_touch(screenCoords);
+        if (++num_loops_touching > 3 && !was_touching) {
+            Serial.print("INPUT REGISTERED ");
+            Serial.println(millis());
+            gui.on_touch(screenCoords);
+            was_touching = true;
         }
-    } else if (n % 5 == 0) {
-        num_loops_touching = max(num_loops_touching - 1, 0);
+        if (num_loops_touching > 100) {
+            gui.show_menu(screenCoords);
+        }
+    } else {
+        num_loops_touching = max(num_loops_touching - 2, 0);
     }
+    if (num_loops_touching == 0)
+        was_touching = false;
 
     val = gui.get(curr_data);
 
     // we finally got a response
     if (elm327.nb_rx_state == ELM_SUCCESS) {
+    // if (1) {
         // update gui
         gui.update(val, curr_data);
         // move to next data thing (there are 4 total)
