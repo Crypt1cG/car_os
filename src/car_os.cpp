@@ -28,6 +28,8 @@ int curr_data;
 int n;
 
 int num_loops_touching = 0;
+int time_pressed = 0;
+int prev_time = 0;
 bool was_touching;
 
 void setup()
@@ -35,7 +37,9 @@ void setup()
     Serial.begin(115200);
 
     analogReadResolution(10);
-    // delay(2000);
+#ifdef TESTING
+    delay(5000);
+#endif
     // Connect to elm327 - mostly taken from example
     Serial.println("Beginning connection process...");
     // serial_bt.begin("Car_OS");
@@ -61,6 +65,7 @@ void setup()
     // }
     // Serial.println("Connected!");
 
+#ifndef TESTING
     SerialBT.begin();
     // SerialBT.connect("C4:D0:E3:95:75:53"); // laptop
     SerialBT.connect("00:1D:A5:02:05:78"); // ELM327
@@ -79,15 +84,16 @@ void setup()
         while (1); // halt execution
     }
     Serial.println("ELM connected");
+#endif
     
     tft.init();
     tft.setRotation(1);
-    tft.setTextColor(TFT_WHITE);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.fillScreen(TFT_BLACK);
     tft.setFreeFont(&FreeSansBold12pt7b);
     
     Serial.println("Starting calibration...");
-    ts.pressureThreshhold = 50;
+    ts.pressureThreshhold = 75;
     calibrate(tft, ts);
 
     // Datum rpm = Datum("rpm", TFT_RED, new SinData(3000, 4000, 1/15.0));
@@ -96,7 +102,8 @@ void setup()
         // Datum("speed", TFT_BLUE, 0, 100, &ELM327::mph),
         // Datum("temp", TFT_GREEN, 0, 120, &ELM327::engineCoolantTemp),
         // Datum("throt", TFT_CYAN, 0, 100, &ELM327::throttle)
-        Datum("rpm"), Datum("speed"), Datum("temp"), Datum("throt")
+        Datum(RPM), Datum(SPEED), Datum(ENGINE_TEMP), Datum(THROTTLE)
+        // Datum("rpm"), Datum("speed"), Datum("temp"), Datum("throt")
     };
     gui.fill_data(data);
 }
@@ -124,24 +131,38 @@ void loop() {
         Point screenCoords = touchscreenAdjust({p.y, p.x});
         if (++num_loops_touching > 3 && !was_touching) {
             Serial.print("INPUT REGISTERED ");
-            Serial.println(millis());
+            time_pressed = millis();
+            Serial.println(time_pressed);
             gui.on_touch(screenCoords);
             was_touching = true;
         }
-        if (num_loops_touching > 100) {
+        if (num_loops_touching > 20 && millis() - time_pressed > 1000) {
             gui.show_menu(screenCoords);
+        }
+        if (num_loops_touching > 20 && millis() - time_pressed > 5000) {
+            Serial.println("Recalibrating...");
+            tft.fillScreen(TFT_BLACK);
+            delay(1000);
+            calibrate(tft, ts);
+            num_loops_touching = 0;
+            gui.draw();
         }
     } else {
         num_loops_touching = max(num_loops_touching - 2, 0);
     }
-    if (num_loops_touching == 0)
+    if (num_loops_touching == 0) {
         was_touching = false;
+    }
 
     val = gui.get(curr_data);
 
+#ifndef TESTING
     // we finally got a response
-    if (elm327.nb_rx_state == ELM_SUCCESS) {
-    // if (1) {
+    if (elm327.nb_rx_state == ELM_SUCCESS)
+#else
+    if (1)
+#endif
+    {
         // update gui
         gui.update(val, curr_data);
         // move to next data thing (there are 4 total)
@@ -170,4 +191,11 @@ void loop() {
     // Serial.print(ESP.getFreeHeap()); Serial.println("    ");
     // delay(20);
     // delay(50);
+    if (n % 10 == 0) {
+        int new_time = millis();
+        float framerate = 10.f / ((new_time - prev_time) / 1000.f);
+        prev_time = new_time;
+        tft.setTextDatum(BL_DATUM);
+        tft.drawString(String(framerate, 0), 2, SCREEN_HEIGHT - 2);
+    }
 }

@@ -1,22 +1,29 @@
 #include "datum.hpp"
 
 
-const std::map<const String, std::tuple<uint32_t, double, double, func, int>> Datum::default_configs =
+const std::map<Data, std::tuple<String, uint32_t, double, double, func, int>> Datum::default_configs =
     {
-        {"rpm", {TFT_RED, 0, 10000, &ELM327::rpm, 0}},
-        // {"rpm", {TFT_RED, 0, 10000, [](){ delay(10); return (rand() % 10000) * 1.f; }, 0}},
-        {"speed", {TFT_BLUE, 0, 100, &ELM327::mph, 1}},
-        // {"speed", {TFT_BLUE, 0, 100, [](){ delay(10); return (rand() % 100) * 1.f; }, 1}},
-        {"temp", {TFT_GREEN, 0, 120, &ELM327::engineCoolantTemp, 0}},
-        // {"temp", {TFT_GREEN, 0, 120, [](){ delay(10); return (rand() % 120) * 1.f; }, 0}},
-        {"throt", {TFT_CYAN, 0, 100, &ELM327::throttle, 1}},
-        // {"throt", {TFT_CYAN, 0, 100, [](){ delay(10); return (rand() % 100) * 1.f; }, 1}},
-        {"load", {TFT_MAGENTA, 0, 100, &ELM327::engineLoad, 1}},
-        {"fp", {TFT_OLIVE, 0, 765, &ELM327::fuelPressure, 0}}, // doesn't work
-        {"ip", {TFT_MAROON, 0, 255, (float (ELM327::*)())(&ELM327::manifoldPressure), 0}}, // doesn't work
-        {"time", {TFT_DARKCYAN, -64, 63.5, &ELM327::timingAdvance, 1}},
-        {"atmp", {TFT_NAVY, -40, 215, &ELM327::intakeAirTemp, 0}},
-        {"maf", {TFT_ORANGE, 0, 655.35, &ELM327::mafRate, 1}}
+#ifdef TESTING
+        {RPM, {"rpm", TFT_RED, 0, 10000, [](){ return (rand() % 10000) * 1.f; }, 0}},
+        {SPEED, {"speed", TFT_BLUE, 0, 100, [](){ return 50.f; }, 1}},
+        {ENGINE_TEMP, {"temp", TFT_GREEN, 0, 120, [](){ static int val = 0; return (val++ % 120) * 1.f; }, 0}},
+        {THROTTLE, {"throt", TFT_CYAN, 0, 100, [](){ return (rand() % 100) * 1.f; }, 1}},
+        {LOAD, {"load", TFT_MAGENTA, 0, 100, [](){return 0.f;}, 1}},
+        {TIMING_ADV, {"time", TFT_DARKCYAN, -64, 63.5, [](){return (rand() % 100 - 50) * 1.f;}, 1}},
+        {MAF_RATE, {"maf", TFT_ORANGE, 0, 655.35, [](){return (rand() % 655) * 1.f;}, 1}},
+        {AIR_TEMP, {"atmp", TFT_NAVY, -40, 215, [](){return (rand() % 255 - 40) * 1.f;}, 0}},
+        {RUN_TIME, {"run time", TFT_MAROON, 0, 65535, [](){static float time = 0; return time++;}, 1}}
+#else
+        {RPM, {"rpm", TFT_RED, 0, 10000, &ELM327::rpm, 0}},
+        {SPEED, {"speed", TFT_BLUE, 0, 100, &ELM327::mph, 1}},
+        {ENGINE_TEMP, {"temp", TFT_GREEN, 0, 120, &ELM327::engineCoolantTemp, 0}},
+        {THROTTLE, {"throt", TFT_CYAN, 0, 100, &ELM327::throttle, 1}},
+        {LOAD, {"load", TFT_MAGENTA, 0, 100, &ELM327::engineLoad, 1}},
+        {TIMING_ADV, {"time", TFT_DARKCYAN, -64, 63.5, &ELM327::timingAdvance, 1}},
+        {MAF_RATE, {"maf", TFT_ORANGE, 0, 655.35, &ELM327::mafRate, 1}},
+        {AIR_TEMP, {"atmp", TFT_NAVY, -40, 215, &ELM327::intakeAirTemp, 0}},
+        {RUN_TIME, {"run time", TFT_MAROON, 0, 65535, (float (ELM327::*)())(&ELM327::runTime), 1}}
+#endif
     };
 
 void Datum::update(double new_val)
@@ -35,19 +42,23 @@ void Datum::draw(TFT_eSPI& tft)
     spr.setTextColor(TFT_WHITE, GAUGE_BG);
     // set font for number (could use smooth fonts, but it would be slower)
     spr.setFreeFont(&FreeMonoBold18pt7b);
-    spr.createSprite(2 * radius, 2 * radius);
+    // add one for like anti-aliasing (it gets a little cut off otherwise)
+    spr.createSprite(2 * radius + 1, 2 * radius + 1);
     // background around circle
     spr.fillSprite(TFT_BLACK);
     // gauge background circle
     spr.fillSmoothCircle(radius, radius, radius, GAUGE_BG);
-    spr.drawSmoothArc(radius, radius, 0.95 * radius, 0.8 * radius,
-                      45, 45 + ((value - min) * 1.0 / (max - min)) * 270,
-                      color, GAUGE_BG);
+    // don't draw if arc is too small - sometimes it wraps all the way around
+    if (abs(value - min) > 0.001 * (max - min))
+        spr.drawSmoothArc(radius, radius, 0.95 * radius, 0.8 * radius,
+                          45, 45 + ((value - min) * 1.0 / (max - min)) * 270,
+                          color, GAUGE_BG);
     // draw the number
     spr.setTextDatum(BC_DATUM);
     spr.drawString(String(value, precision), radius, radius);
     
     // draw the label text
+    spr.setFreeFont(&FreeSans12pt7b);
     spr.setTextDatum(TC_DATUM);
     spr.drawString(label, radius, radius);
     
@@ -121,7 +132,8 @@ void Datum::drawDetailed(TFT_eSPI& tft)
         if (history[ind] <= max && history[ind] >= min) {
             int p1 = 10 + 260 * (max - history[ind]) / (max - min);
             int p2 = 10 + 260 * (max - history[(ind + 1) % HIST_SIZE]) / (max - min);
-            spr.drawFastVLine(50 + i, std::min(p1, p2), abs(p2 - p1), color);
+            int length = abs(p2 - p1) + 1; // add 1 to length so that constant isn't 0
+            spr.drawFastVLine(50 + i, std::min(p1, p2), length, color);
         }
         ind = (ind + 1) % HIST_SIZE;
     }

@@ -7,13 +7,31 @@
 #include <map>
 #include <tuple>
 #include <array>
+#define TESTING
 
-typedef float (ELM327::*func)();
+#ifdef TESTING
+    typedef float (*func)();
+#else
+    typedef float (ELM327::*func)();
+#endif
+
+enum Data {
+    RPM,
+    SPEED,
+    ENGINE_TEMP,
+    THROTTLE,
+    LOAD,
+    TIMING_ADV,
+    MAF_RATE,
+    AIR_TEMP,
+    RUN_TIME
+};
 
 class Datum
 {
-    const static std::map<const String, 
-        std::tuple<uint32_t, double, double, func, int>> default_configs;
+    const static std::map<Data, 
+        std::tuple<String, uint32_t, double, double, func, int>> default_configs;
+        // std::tuple<uint32_t, double, double, func, int>> default_configs;
 
     const static uint32_t GAUGE_BG = TFT_DARKGREY;
     const static int HIST_SIZE = 200;
@@ -21,7 +39,7 @@ class Datum
     String label;
     uint32_t color;
     //std::list<float> history;
-    std::array<float, HIST_SIZE> history;
+    std::array<float, HIST_SIZE> history = {0};
     int curr_ind = 0;
     Point pos;
     int radius;
@@ -62,9 +80,13 @@ public:
           int p = 1)
         : Datum(label, color, 0, min, max, g, p) {}
 
-    Datum(const String& label) : Datum(label, std::get<0>(default_configs.at(label)),
-        std::get<1>(default_configs.at(label)), std::get<2>(default_configs.at(label)),
-        std::get<3>(default_configs.at(label)), std::get<4>(default_configs.at(label))) {}
+    Datum(Data d) : Datum(std::get<0>(default_configs.at(d)), std::get<1>(default_configs.at(d)),
+        std::get<2>(default_configs.at(d)), std::get<3>(default_configs.at(d)),
+        std::get<4>(default_configs.at(d)), std::get<5>(default_configs.at(d))) {}
+
+    // Datum(const String& s) : Datum(s, std::get<0>(default_configs.at(s)),
+    //     std::get<1>(default_configs.at(s)), std::get<2>(default_configs.at(s)),
+    //     std::get<3>(default_configs.at(s)), std::get<4>(default_configs.at(s))) {}
 
     void update(double new_val);
     void move(Point p) { pos = p; }

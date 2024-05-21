@@ -8,10 +8,3 @@
 struct Point {
     int x, y;    
 };
-
-enum Data {
-    rpm,
-    speed,
-    temp,
-    throt
-};
