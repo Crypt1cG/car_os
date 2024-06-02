@@ -64,6 +64,8 @@ void GUI::on_touch(Point p) {
         int col = p.x / 160;
         int row = p.y / 107;
         int menu_index = col * 3 + row;
+        // could go out of range if calibration is bad
+        if (menu_index < 0 || menu_index > 9) return;
 
         // NOTE: This isn't needed anymore??
         // if -1, just change first one
