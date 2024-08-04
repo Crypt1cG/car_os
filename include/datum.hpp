@@ -40,6 +40,8 @@ class Datum
     double min, max;
     int precision;
     Data data_ind;
+    float trip_avg = 0;
+    int data_size = 0;
     // TFT_eSPI& tft;
     // TFT_eSprite spr;
 

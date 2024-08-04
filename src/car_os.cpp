@@ -118,7 +118,7 @@ void setup()
         // Datum("speed", TFT_BLUE, 0, 100, &ELM327::mph),
         // Datum("temp", TFT_GREEN, 0, 120, &ELM327::engineCoolantTemp),
         // Datum("throt", TFT_CYAN, 0, 100, &ELM327::throttle)
-        Datum(RPM), Datum(SPEED), Datum(ENGINE_TEMP), Datum(THROTTLE)
+        Datum(RPM), Datum(SPEED), Datum(MPG), Datum(LOAD)
         // Datum("rpm"), Datum("speed"), Datum("temp"), Datum("throt")
     };
     gui.fill_data(data);

@@ -20,6 +20,12 @@ void Datum::update()
 {
     curr_ind = (curr_ind + 1) % HIST_SIZE;
     history[curr_ind] = data_arr[data_ind];
+
+    // update average - first multiply to get total, add, and divide again
+    trip_avg *= data_size;
+    trip_avg += history[curr_ind];
+    data_size++;
+    trip_avg /= data_size;
 }
 
 void Datum::draw(TFT_eSPI& tft)
@@ -132,11 +138,14 @@ void Datum::drawDetailed(TFT_eSPI& tft)
     spr.createSprite(200, SCREEN_HEIGHT);
     spr.setFreeFont(&FreeMonoBold24pt7b);
     spr.fillSprite(TFT_BLACK);
-    spr.setTextDatum(TC_DATUM);
-    spr.drawString(String(history[curr_ind], precision), 90, SCREEN_HEIGHT / 4);
-    spr.setFreeFont(&FreeSans18pt7b);
     spr.setTextDatum(BC_DATUM);
-    spr.drawString(label, 90, 3 * SCREEN_HEIGHT / 4);
+    spr.drawString(String(history[curr_ind], precision), 90, SCREEN_HEIGHT / 3);
+    spr.drawString(String(trip_avg, precision), 90, 2 * SCREEN_HEIGHT / 3);
+
+    spr.setFreeFont(&FreeSans18pt7b);
+    spr.setTextDatum(TC_DATUM);
+    spr.drawString(label, 90, SCREEN_HEIGHT / 3);
+    spr.drawString("avg", 90, 2 * SCREEN_HEIGHT / 3);
 
     spr.pushSprite(280, 0);
     spr.deleteSprite();
